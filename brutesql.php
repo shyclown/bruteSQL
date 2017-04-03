@@ -1,14 +1,21 @@
 <?php
-
-
-
+echo 'bruteSQL';
 $bq = new bruteSQL;
-$bq->sqlCreateTable('bable');
-$bq->sqlInsert('{"table":"bable","values":{"name":"names"}}');
-$res = $bq->sqlSelectAll('named');
-$restwo = $bq->sqlSelectAll('bable');
+//$bq->sqlCreateTable('bable');
+//$bq->sqlInsert('{"table":"bable","values":{"name":"names"}}');
+//$res = $bq->sqlSelectAll('named');
+//$restwo = $bq->sqlSelectAll('bable');
+$str = '{
+  "table":"bable",
+  "where":[
+    ["pap"],
+    [">"],
+    ["ag"]
+  ]
+}';
 
-echo json_encode([$res, $restwo]);
+$restwo = $bq->sqlSelect($str);
+echo json_encode([$restwo]);
 $bq->sqlClose();
 
 // bruteSQL
@@ -21,35 +28,61 @@ class bruteSQL {
   function __construct(){ $this->db = new Database; }
 
   public function sqlSelect($data){ $data = json_decode($data, true);
+    $return = [];
+    $errors = [];
     $table = $data['table'];
     $what = [];
     if($this->sqlTableExist($table)){
 
       if(isset($data['select'])){
-        foreach ($data['select'] as $select => $value) {
-          if($this->bqColumnExists($table, $value)){ array_push($what, $value); }
+        foreach ($data['select'] as $k => $property){
+          $exist = false;
+          if($this->bqColumnExists($table, $property)){
+            array_push($what, $property);
+            $exist = true;
+          }
+          elseif($table = $this->bqColumnExistsInConnected($table, $property)){
+            array_push($what, $property);
+            array_push($connectTables, $table);
+            $exist = true;
+          }
+          if(!$exist){
+            $errors[] = 'Error: Could not find property: '.$property;
+            var_dump($errors);
+          }
         }
       }
-      if(isset($data['where'])){
-        $propertyOne = $data['where'][0];
-        $propertyTwo = $data['where'][2];
-        $propertyOperator = $data['where'][1];
 
-        $listProperties = [];
+      if(isset($data['where'])){
+        $properties = $data['where'][0];
+        $operators = $data['where'][1];
+        $values = $data['where'][2];
+        $allProperties = [];
+        $allValues = [];
         $connectTables = [];
 
-        foreach ($propartyOne as $k => $prop) {
-          if($this->bqColumnExists($table, $prop)){
-            array_push($what, $prop);
+        // control if properties are present in tables
+        foreach ($properties as $k => $property){
+          $exist = false;
+          if($this->bqColumnExists($table, $property)){
+            array_push($allProperties, $property);
+            $exist = true;
           }
-          elseif($table = $this->bqColumnExistsInConnected($table, $prop)){
-          //  array_push($listProperties, $prop); array_push($connectTables, $table);
+          elseif($table = $this->bqColumnExistsInConnected($table, $property)){
+            array_push($allProperties, $property);
+            array_push($connectTables, $table);
+            $exist = true;
           }
+          if($exist){ array_push($allValues, $values[$k]); }
+          else{ $errors[] = 'Error: Could not find property: '.$property; } // error
         }
+        var_dump($allProperties);
+        var_dump($connectTables);
+        var_dump($errors);
       }
     }
   }
-  private function bqColumnExistInConnected($table, $prop){
+  private function bqColumnExistsInConnected($table, $prop){
     $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
     var_dump($cTables);
   }
