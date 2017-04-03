@@ -1,4 +1,16 @@
 <?php
+
+
+
+$bq = new bruteSQL;
+$bq->sqlCreateTable('bable');
+$bq->sqlInsert('{"table":"bable","values":{"name":"names"}}');
+$res = $bq->sqlSelectAll('named');
+$restwo = $bq->sqlSelectAll('bable');
+
+echo json_encode([$res, $restwo]);
+$bq->sqlClose();
+
 // bruteSQL
 /*
 *
@@ -15,10 +27,9 @@ class bruteSQL {
 
       if(isset($data['select'])){
         foreach ($data['select'] as $select => $value) {
-        //  if($this->bqColumnExists($table, $value)){ array_push($what, $value); }
+          if($this->bqColumnExists($table, $value)){ array_push($what, $value); }
         }
       }
-
       if(isset($data['where'])){
         $propertyOne = $data['where'][0];
         $propertyTwo = $data['where'][2];
@@ -29,7 +40,7 @@ class bruteSQL {
 
         foreach ($propartyOne as $k => $prop) {
           if($this->bqColumnExists($table, $prop)){
-          //  array_push($what, $prop);
+            array_push($what, $prop);
           }
           elseif($table = $this->bqColumnExistsInConnected($table, $prop)){
           //  array_push($listProperties, $prop); array_push($connectTables, $table);
@@ -40,7 +51,7 @@ class bruteSQL {
   }
   private function bqColumnExistInConnected($table, $prop){
     $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
-  //  var_dump($cTables);
+    var_dump($cTables);
   }
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
     $this->sqlConnectTables($tableOne, $tableTwo);
@@ -115,7 +126,7 @@ class bruteSQL {
   private function sqlTableExist($table){ return $this->db->query(
       "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '{$table}' LIMIT 1"
   );}
-  private function sqlCreateTable($table){ return $this->db->query(
+  public function sqlCreateTable($table){ return $this->db->query(
       "CREATE TABLE IF NOT EXISTS {$table} ( id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY )"
   );}
   private function sqlAddColumn($table, $column, $type){ return $this->db->query(
@@ -177,20 +188,13 @@ class bruteSQL {
   }
 }
 
-$bq = new bruteSQL;
-$res = $bq->sqlSelectAll('named');
-$bq->sqlClose();
-
-
-/**
- *
- */
- class Database{
-   public $_mysqli;
-   public $error;
-   public function __construct(){
-     mysqli_report(MYSQLI_REPORT_STRICT);
-     try {
+class Database
+{
+  public $_mysqli;
+  public $error;
+  public function __construct(){
+  mysqli_report(MYSQLI_REPORT_STRICT);
+  try {
        // from define.php file
        $this->_mysqli = new mysqli('localhost', 'root', '', 'brutesql');
        $this->_mysqli->set_charset('utf8');

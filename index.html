@@ -7,13 +7,21 @@
   <script src="/angular/angular.min.js"></script>
   <body ng-app="app" ng-controller="main">
     AngularJS:  {{running}}
+
+   <div class="a" ng-repeat="value in values track by $index">
+     {{value}}
+   </div>
   </body>
   <script>
   const app = angular.module('app',[]);
   app.controller('main', function($scope, $http, Ajax){
     $scope.running = true;
+    $scope.values = [];
 
-    Ajax.call({table:'users', values:{name:'roman'}}, function(res){ console.log(res.data);});
+    Ajax.call(
+      {table:'users', values:{name:'roman'}},
+      function(res){ console.log(res.data); $scope.values = res.data; }
+    );
 
 
 
