@@ -1,6 +1,8 @@
 <?php
-
-
+// bruteSQL
+/*
+*
+*/
 class bruteSQL {
   private $db;
   public $keys;
@@ -10,15 +12,14 @@ class bruteSQL {
     $table = $data['table'];
     $what = [];
     if($this->sqlTableExist($table)){
-      // checkSelected
+
       if(isset($data['select'])){
         foreach ($data['select'] as $select => $value) {
-          if($this->bqColumnExists($table, $value)){ array_push($what, $value); }
+        //  if($this->bqColumnExists($table, $value)){ array_push($what, $value); }
         }
       }
 
-      if(isset($data['where']))
-      {
+      if(isset($data['where'])){
         $propertyOne = $data['where'][0];
         $propertyTwo = $data['where'][2];
         $propertyOperator = $data['where'][1];
@@ -27,16 +28,20 @@ class bruteSQL {
         $connectTables = [];
 
         foreach ($propartyOne as $k => $prop) {
-          if($this->bqColumnExists($table, $prop)){ array_push($what, $prop); }
-          else($table = $this->bqColumnExistsInConnected($table, $prop)){
-            array_push($listProperties, $prop); array_push($connectTables, $table);
+          if($this->bqColumnExists($table, $prop)){
+          //  array_push($what, $prop);
+          }
+          elseif($table = $this->bqColumnExistsInConnected($table, $prop)){
+          //  array_push($listProperties, $prop); array_push($connectTables, $table);
           }
         }
       }
     }
   }
-
-
+  private function bqColumnExistInConnected($table, $prop){
+    $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
+  //  var_dump($cTables);
+  }
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
     $this->sqlConnectTables($tableOne, $tableTwo);
     $table = $tableOne.'_'.$tableTwo;
@@ -47,7 +52,7 @@ class bruteSQL {
     ');
   }
   private function sqlConnectTables($tableOne, $tableTwo){
-    if(!$this->sqlTableExist('bq_connections'){
+    if(!$this->sqlTableExist('bq_connections')){
       $this->sqlCreateTable('bq_connections');
     }
     if($this->sqlTableExist($tableOne)
@@ -59,14 +64,11 @@ class bruteSQL {
       $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'"}');
       $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'"}');
     };
-
   }
   public function sqlInsert($data){ $data = json_decode($data, true);
-
     $table = $data['table'];
-    if(!$this->sqlTableExist($table)){ $this->sqlCreateTable($table); }
+    if( !$this->sqlTableExist($table) ){ $this->sqlCreateTable($table); }
     if(isset($data['values'])){
-      var_dump($data);
       $properties = '';
       $values = '';
       $params = [];
@@ -176,17 +178,9 @@ class bruteSQL {
 }
 
 $bq = new bruteSQL;
-$data = "{}";
-$bq->sqlInsert('{
-  "table":"named",
-  "values":{
-    "ue":"hifsddsfdsfsdfsdsName",
-    "ufsddse":"dsfsdfsdsName"
-  }
-}');
 $res = $bq->sqlSelectAll('named');
 $bq->sqlClose();
-var_dump($res);
+
 
 /**
  *

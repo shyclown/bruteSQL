@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Test bruteSQL</title>
+  </head>
+  <script src="/angular/angular.min.js"></script>
+  <body ng-app="app" ng-controller="main">
+    AngularJS:  {{running}}
+  </body>
+  <script>
+  const app = angular.module('app',[]);
+  app.controller('main', function($scope, $http, Ajax){
+    $scope.running = true;
+
+    Ajax.call({table:'users', values:{name:'roman'}}, function(res){ console.log(res.data);});
+
+
+
+
+
+  });
+  app.service('Ajax',function($http){
+    this.call = function(data, callback){
+      $http({ method: 'POST', url: 'brutesql.php'})
+      .then( function(res){ callback(res);}, function(res){} );
+    }
+  });
+
+
+  </script>
+</html>
