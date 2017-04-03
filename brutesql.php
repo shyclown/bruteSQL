@@ -38,11 +38,7 @@ class bruteSQL {
 
 
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
-
-    if(!$this->sqlTableExist($tableOne.'_'.$tableTwo)
-    && !$this->sqlTableExist($tableTwo.'_'.$tableOne)){
-      $this->sqlConnectTables($tableOne, $tableTwo);
-    }
+    $this->sqlConnectTables($tableOne, $tableTwo);
     $table = $tableOne.'_'.$tableTwo;
     if(!$this->sqlTableExist($table)){ $table = $tableTwo.'_'.$tableOne; }
     $this->sqlInsert('
