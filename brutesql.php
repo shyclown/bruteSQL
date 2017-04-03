@@ -22,92 +22,53 @@ $bq->sqlClose();
 /*
 *
 */
-class bruteSQL {
+class bruteSQL
+{
   private $db;
-  public $keys;
-  function __construct(){ $this->db = new Database; }
+  public $errors;
 
+  function __construct(){
+    $this->db = new Database;
+    $this->errors = [];
+  }
+  public function sqlUpdate($data){ $data = json_decode($data, true);
+
+  }
   public function sqlSelect($data){ $data = json_decode($data, true);
     $return = [];
     $errors = [];
     $table = $data['table'];
     $what = [];
     if($this->sqlTableExist($table)){
+      if(isset($data['select'])){ $innerJoinSelect = $this->checkTablesPrperty($table, $data['where']); }
+      if(isset($data['where'])){ $innerJoinWhere = $this->checkTablesPrperty($table, $data['where']); }
 
-      if(isset($data['select'])){
-        foreach ($data['select'] as $k => $property){
-          $exist = false;
-          if($this->bqColumnExists($table, $property)){
-            array_push($what, $property);
-            $exist = true;
-          }
-          elseif($table = $this->bqColumnExistsInConnected($table, $property)){
-            array_push($what, $property);
-            array_push($connectTables, $table);
-            $exist = true;
-          }
-          if(!$exist){
-            $errors[] = 'Error: Could not find property: '.$property;
-            var_dump($errors);
-          }
-        }
+      $strSelect = "";
+      $innerJoin ="";
+      foreach ($data['select'] as $key => $property) { if($key!=0){$strSelect .= ','}; $strSelect .= $property; }
+      foreach ($innerJoinSelect as $key => $tablejoin) { $innerJoin .= "INNERJOIN {$tablename} ON {$tablejoin}ID = {$table}ID"; }
+      foreach ($data['where'][0] as $key => $property) {
+        $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
+        if(isset($data['where'][1][$key+1])){ $where .= "{$data['where'][1][$key+1]}"}
       }
 
-      if(isset($data['where'])){
-        $properties = $data['where'][0];
-        $operators = $data['where'][1];
-        $values = $data['where'][2];
-        $allProperties = [];
-        $allValues = [];
-        $connectTables = [];
+      "SELECT {$strSelect} FROM {$table}{$innerJoin}{$where}{$limit}{$direction}";
+    }
+  }
 
-        // control if properties are present in tables
-        foreach ($properties as $k => $property){
-          $exist = false;
-          if($this->bqColumnExists($table, $property)){
-            array_push($allProperties, $property);
-            $exist = true;
-          }
-          elseif($table = $this->bqColumnExistsInConnected($table, $property)){
-            array_push($allProperties, $property);
-            array_push($connectTables, $table);
-            $exist = true;
-          }
-          if($exist){ array_push($allValues, $values[$k]); }
-          else{ $errors[] = 'Error: Could not find property: '.$property; } // error
+  private function checkTablesPrperty($table, $where){
+    $properties = $where[0];
+    $connectTables = [];
+    foreach ($properties as $k => $property)
+    {
+      if(!$this->bqColumnExists($table, $property)){
+        if($table = $this->bqColumnExistsInConnected($table, $property)){
+          array_push($connectTables, $table);
         }
-        var_dump($allProperties);
-        var_dump($connectTables);
-        var_dump($errors);
+        else{ $this->errors[] = 'Error: Could not find property: '.$property; }
       }
     }
-  }
-  private function bqColumnExistsInConnected($table, $prop){
-    $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
-    var_dump($cTables);
-  }
-  private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
-    $this->sqlConnectTables($tableOne, $tableTwo);
-    $table = $tableOne.'_'.$tableTwo;
-    if(!$this->sqlTableExist($table)){ $table = $tableTwo.'_'.$tableOne; }
-    $this->sqlInsert('
-    "table":"'.$table.'",
-    "values":{"'.$tableOne.'ID":"'.$tableOneID.'","'.$tableTwo.'ID":"'.$tableTwo.'"}
-    ');
-  }
-  private function sqlConnectTables($tableOne, $tableTwo){
-    if(!$this->sqlTableExist('bq_connections')){
-      $this->sqlCreateTable('bq_connections');
-    }
-    if($this->sqlTableExist($tableOne)
-    && $this->sqlTableExist($tableTwo)
-    && !$this->sqlTableExist($tableOne.'_'.$tableTwo)
-    && !$this->sqlTableExist($tableTwo.'_'.$tableOne)
-    ){
-      $this->sqlCreateTable($tableOne.'_'.$tableTwo);
-      $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'"}');
-      $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'"}');
-    };
+    return $connectTables;
   }
   public function sqlInsert($data){ $data = json_decode($data, true);
     $table = $data['table'];
@@ -136,6 +97,33 @@ class bruteSQL {
       $this->db->query($sql,$params);
     }
 
+  }
+  private function bqColumnExistsInConnected($table, $prop){
+    $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
+    var_dump($cTables);
+  }
+  private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
+    $this->sqlConnectTables($tableOne, $tableTwo);
+    $table = $tableOne.'_'.$tableTwo;
+    if(!$this->sqlTableExist($table)){ $table = $tableTwo.'_'.$tableOne; }
+    $this->sqlInsert('
+    "table":"'.$table.'",
+    "values":{"'.$tableOne.'ID":"'.$tableOneID.'","'.$tableTwo.'ID":"'.$tableTwo.'"}
+    ');
+  }
+  private function sqlConnectTables($tableOne, $tableTwo){
+    if(!$this->sqlTableExist('bq_connections')){
+      $this->sqlCreateTable('bq_connections');
+    }
+    if($this->sqlTableExist($tableOne)
+    && $this->sqlTableExist($tableTwo)
+    && !$this->sqlTableExist($tableOne.'_'.$tableTwo)
+    && !$this->sqlTableExist($tableTwo.'_'.$tableOne)
+    ){
+      $this->sqlCreateTable($tableOne.'_'.$tableTwo);
+      $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'"}');
+      $this->sqlInsert('"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'"}');
+    };
   }
   private function valueType($val){
     if(is_bool($val)){ return 'tinyint';}
