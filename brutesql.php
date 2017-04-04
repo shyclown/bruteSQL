@@ -1,49 +1,109 @@
 <?php
-echo 'bruteSQL';
-$bq = new bruteSQL;
-//$bq->sqlCreateTable('bable');
-//$bq->sqlInsert('{"table":"bable","values":{"name":"names"}}');
-//$res = $bq->sqlSelectAll('named');
-//$restwo = $bq->sqlSelectAll('bable');
-$str = '{
-  "table":"bable",
-  "select":["bablesd"],
-  "where":[
-    ["pap"],
-    [">"],
-    ["ag"]
-  ],
-  "limit": "0 1"
-}';
+// Listen to post value
+if(isset($_POST)
+&& isset($_POST['action'])
+){ $data = $_POST; }
+else{
+  $data = file_get_contents("php://input");
+  $data = json_decode($data, true); //array
+}
+if($data){
+  $bq = new bruteSQL;
+  /* actions */
+  if(isset($data['action'])){
+  if ( method_exists($bq, $data['action']) ){
+    echo json_encode($bq->{$data['action']}($data));
+    }
+  }
+  /* close connection */
 
-$restwo = $bq->sqlSelect($str);
-echo json_encode([$restwo]);
-$bq->sqlClose();
+}
 
-// bruteSQL
-/*
-*
-*/
+
+
+interface bruteActions{
+
+}
 class bruteSQL
 {
   private $db;
+  public $wall;
   public $errors;
 
   function __construct(){
     $this->db = new Database;
     $this->errors = [];
-  }
-  public function sqlUpdate($data){ $data = json_decode($data, true);
+    $this->debug = [];
 
   }
-  public function sqlSelect($data){ $data = json_decode($data, true);
+  /* Public functions */
+  public function insert($data){ }
+  public function select($data){ return $this->sqlSelect($data);}
+  public function update($data){ }
+  public function delete($data){ }
+  public function alltables(){ return $this->sqlAllTables(); }
+
+  // LOG
+  public function log_read($limit){}
+  public function log_drop(){}
+  // DUMP TABLES
+  public function dump_tables(){ }
+  public function drop_table(){ }
+
+  /* Private functions */
+  public function sqlUpdate($data){
+    $table = $data['table'];
+
+    if($this->sqlTableExist($table)){
+      $set = "";
+      $where = "";
+      $params = [];
+      $i = 0;
+
+      foreach ($data['set'] as $property => $value) {
+        if($this->bqColumnExists($table, $property)){
+          if($i != 0){ $set .= ', ';}
+          $set .= $property.' = ?';
+          if($i == 0){ array_push($params,$this->param_type($value)); }
+          else{ $params[0] .= $this->param_type($value); }
+          array_push($params, $value);
+          $i++;
+        }
+        else{ $this->err("Error - Update SET: Can not set `{$property}` - it does not exist in table."); }
+      }
+      foreach ($data['where'][0] as $k => $property) {
+        if($this->bqColumnExists($table, $property)){
+          $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
+          if(isset($data['where'][1][$key+1])){ $where .= $data['where'][1][$key+1]; }
+        }
+        else{ $this->err("Error - Update WHERE: Can not set `{$property}` - it does not exist in table."); }
+      }
+
+      $sql = "UPDATE {$table} SET {$set} {$where}"; $this->log($sql); // debug
+      if($result = $this->db->query($sql, $params)){
+        $this->log('SQL: UPDATED');
+        foreach ($params as $k => $value) { $this->log("PARAMETER {$k}: {$value}"); }
+        return $result;
+      }
+      else{
+        $this->err("ERROR: SQL QUERY {$sql} FAILED");
+        foreach ($params as $k => $value) { $this->err("PARAMETER {$k}: {$value}"); }
+      }
+    }
+  }
+
+  private function err($str){ array_push($this->errors, $str); }
+  private function log($str){ array_push($this->debug, $str); }
+
+
+  public function sqlSelect($data){
     $return = [];
     $errors = [];
     $table = $data['table'];
     $what = [];
     if($this->sqlTableExist($table)){
-      if(isset($data['select'])){ $innerJoinSelect = $this->checkTablesPrperty($table, $data['where']); }
-      if(isset($data['where'])){ $innerJoinWhere = $this->checkTablesPrperty($table, $data['where']); }
+      if(isset($data['select'])){ $innerJoinSelect = $this->checkTablesProperty($table, $data['where']); }
+      if(isset($data['where'])){ $innerJoinWhere = $this->checkTablesProperty($table, $data['where']); }
       $strSelect = "";
       $innerJoin ="";
       $where ="";
@@ -57,31 +117,26 @@ class bruteSQL
       }
 
       //foreach ($innerJoinSelect as $key => $tablejoin) { $innerJoin .= "INNERJOIN {$tablename} ON {$tablejoin}ID = {$table}ID"; }
-      foreach ($data['where'][0] as $key => $property) {
-        $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
-        if(isset($data['where'][1][$key+1])){ $where .= $data['where'][1][$key+1]; }
+      if(isset($data['where'])){
+        foreach ($data['where'][0] as $key => $property) {
+          $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
+          if(isset($data['where'][1][$key+1])){ $where .= $data['where'][1][$key+1]; }
+        }
       }
 
       $sql = "SELECT {$strSelect} FROM {$table}{$innerJoin}{$where}{$limit}{$direction}";
-      var_dump($sql);
+      if($result = $this->db->query($sql)){
+        $this->log('SQL: SELECTED');
+        return $result;
+      }
+      else{
+        $this->err("ERROR: SQL QUERY {$sql} FAILED");
+      }
     }
   }
 
-  private function checkTablesPrperty($table, $where){
-    $properties = $where[0];
-    $connectTables = [];
-    foreach ($properties as $k => $property)
-    {
-      if(!$this->bqColumnExists($table, $property)){
-        if($table = $this->bqColumnExistsInConnected($table, $property)){
-          array_push($connectTables, $table);
-        }
-        else{ $this->errors[] = 'Error: Could not find property: '.$property; }
-      }
-    }
-    return $connectTables;
-  }
-  public function sqlInsert($data){ $data = json_decode($data, true);
+
+  private function sqlInsert($data){
     $table = $data['table'];
     if( !$this->sqlTableExist($table) ){ $this->sqlCreateTable($table); }
     if(isset($data['values'])){
@@ -109,9 +164,27 @@ class bruteSQL
     }
 
   }
-  private function bqColumnExistsInConnected($table, $prop){
-    $cTables = $this->db->query("SELECT t2 FROM bq_connections WHERE t1 = {$table}");
-    var_dump($cTables);
+  private function checkTablesProperty($table, $where){
+    $properties = $where[0];
+    $connectTables = [];
+    foreach ($properties as $k => $property)
+    {
+      if(!$this->bqColumnExists($table, $property)){
+        if($connected_table = $this->bqColumnExistsInConnected($table, $property)){
+            array_push($connectTables, $connected_table);
+        }
+        else{   $this->errors[] = 'Error: Could not find property: '.$property;
+        }
+      }
+    }
+    return $connectTables;
+  }
+  private function bqColumnExistsInConnected($table, $property){
+    if($this->sqlTableExist('bq_connections')){
+      $xTable = $this->db->query("SELECT t2 FROM bq_connections WHERE t1 = {$table}");
+      if($this->bqColumnExists($xTable, $property)){ return true; }
+    }
+    return false;
   }
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
     $this->sqlConnectTables($tableOne, $tableTwo);
@@ -155,10 +228,18 @@ class bruteSQL
   private function getNextPowerOfTwo($nr){
     $power = 1; while($power < $nr){ $power*=2; } return $power;
   }
+  private function sqlAllTables(){
+    $tables = $this->db->query("SHOW TABLES");
+    $tablenames = [];
+    foreach ($tables as $k => $value) {
+      array_push($tablenames, $value['Tables_in_brutesql']);
+    }
+    return $tablenames;
+  }
   private function sqlTableExist($table){ return $this->db->query(
       "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '{$table}' LIMIT 1"
   );}
-  public function sqlCreateTable($table){ return $this->db->query(
+  private function sqlCreateTable($table){ return $this->db->query(
       "CREATE TABLE IF NOT EXISTS {$table} ( id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY )"
   );}
   private function sqlAddColumn($table, $column, $type){ return $this->db->query(
@@ -170,10 +251,10 @@ class bruteSQL
   private function sqlTableColumns($table){ return $this->db->query(
       "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{$table}'"
   );}
-  public function sqlSelectAll($table){ return $this->db->query(
+  private function sqlSelectAll($table){ return $this->db->query(
       "SELECT * FROM {$table} "
   );}
-  public function sqlClose(){
+  private function sqlClose(){
     $this->db->destroy();
   }
 
