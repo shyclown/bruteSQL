@@ -1,0 +1,42 @@
+h2{
+  font-family: 'Roboto', sans-serif;
+  font-weight: 300;
+}
+table {
+  font-family: 'Roboto', sans-serif;
+  border-collapse: collapse;
+  border: 1px solid #ddd;
+}
+
+table, th, td {
+    padding: 8px 8px;
+    text-align: left;
+}
+th {
+  background-color: #4CAF50;
+  border-right: 1px solid #ddd;
+  font-weight: 300;
+  color: white;
+}
+td {
+  border-right: 1px solid #ddd;
+  font-weight: 300;
+}
+th:last-child{
+  background-color: #4CAF50;
+  border-right: 0px solid #ddd;
+  font-weight: 300;
+  color: white;
+}
+td:last-child{
+  border-right: 0px solid #ddd;
+}
+tr{
+  border-bottom: 1px solid #ddd;
+}
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+tr:last-child{
+  border-bottom: 0px solid #ddd;
+}
