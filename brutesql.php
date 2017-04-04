@@ -7,11 +7,13 @@ $bq = new bruteSQL;
 //$restwo = $bq->sqlSelectAll('bable');
 $str = '{
   "table":"bable",
+  "select":["bablesd"],
   "where":[
     ["pap"],
     [">"],
     ["ag"]
-  ]
+  ],
+  "limit": "0 1"
 }';
 
 $restwo = $bq->sqlSelect($str);
@@ -42,17 +44,26 @@ class bruteSQL
     if($this->sqlTableExist($table)){
       if(isset($data['select'])){ $innerJoinSelect = $this->checkTablesPrperty($table, $data['where']); }
       if(isset($data['where'])){ $innerJoinWhere = $this->checkTablesPrperty($table, $data['where']); }
-
       $strSelect = "";
       $innerJoin ="";
-      foreach ($data['select'] as $key => $property) { if($key!=0){$strSelect .= ','}; $strSelect .= $property; }
-      foreach ($innerJoinSelect as $key => $tablejoin) { $innerJoin .= "INNERJOIN {$tablename} ON {$tablejoin}ID = {$table}ID"; }
-      foreach ($data['where'][0] as $key => $property) {
-        $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
-        if(isset($data['where'][1][$key+1])){ $where .= "{$data['where'][1][$key+1]}"}
+      $where ="";
+      $limit = "";
+      $direction="";
+
+      if(isset($data['select'])){
+        foreach ($data['select'] as $key => $property) { if($key!=0){$strSelect .= ',';}; $strSelect .= $property; }
+      }else{
+        $strSelect .= '*';
       }
 
-      "SELECT {$strSelect} FROM {$table}{$innerJoin}{$where}{$limit}{$direction}";
+      //foreach ($innerJoinSelect as $key => $tablejoin) { $innerJoin .= "INNERJOIN {$tablename} ON {$tablejoin}ID = {$table}ID"; }
+      foreach ($data['where'][0] as $key => $property) {
+        $where .= "{$property} {$data['where'][1][$key]} {$data['where'][2][$key]}";
+        if(isset($data['where'][1][$key+1])){ $where .= $data['where'][1][$key+1]; }
+      }
+
+      $sql = "SELECT {$strSelect} FROM {$table}{$innerJoin}{$where}{$limit}{$direction}";
+      var_dump($sql);
     }
   }
 
@@ -99,7 +110,7 @@ class bruteSQL
 
   }
   private function bqColumnExistsInConnected($table, $prop){
-    $cTables = $this->db->query("SELECT t2 FROM {$table} WHERE t1 = {$prop}");
+    $cTables = $this->db->query("SELECT t2 FROM bq_connections WHERE t1 = {$table}");
     var_dump($cTables);
   }
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
