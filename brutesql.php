@@ -16,6 +16,7 @@ if($data){
     }
   }
 }
+// dsad
 /*
 $test = '{"table":"orders", "where": [["customer.id","orders.id"],["=","AND",">"],["1","customer.id"]]}';
 $test = json_decode($test, true);
@@ -59,6 +60,11 @@ class bruteSQL
       return $this->db->query("DROP TABLE {$data['table']}");
     }
   }
+
+  // - - - - - - - - - - - - - - - - - - -
+  // UPDATE
+  // - - - - - - - - - - - - - - - - - - -
+
   public function sqlUpdate($data)
   {
     $table = $data['table'];
@@ -99,6 +105,45 @@ class bruteSQL
     }
   }
 
+  // Create WHERE STRING
+  private function bqStringWhere($where)
+  {
+    $str_where = 'WHERE';
+    $prepared = [];
+    foreach ($where[0] as $key => $property)
+    {
+      $j = $key*2;
+      $compare = $where[2][$key];
+      $op = $where[1]; // operator
+      function mkString($value){
+        if($value[0] == '_'){ $esc = "'"; $value = substr($value, 1); }
+        else{ $esc = ""};
+        return " {$esc}{$value}{$esc} ";
+      }
+      $str_where .= mkString($property).$op[$j].mkString($compare);
+      if(isset($op[$j+1])){ $str_where .= " ".$op[$j+1]." "; }
+    }
+    return $str_where;
+  }
+
+  // Create INNER JOIN ARR
+  private function bqConnectTable($value){
+    if(strpos($value, ".") !== false && $value[0] != "."){
+      $table_name = explode(".", $value)[0];
+      if($table_name != $data['table']){
+        if($this->sqlTableExist($table_name)){
+          return $table_name;
+        }else{
+          $this->err("Could not find table {$table_name} defined as part of value: {$value}.");
+          return false;
+        }
+      }
+    }
+  }
+
+  // - - - - - - - - - - - - - - - - - - -
+  // SELECT
+  // - - - - - - - - - - - - - - - - - - -
 
   public function bqSelect($data)
   {
@@ -106,45 +151,39 @@ class bruteSQL
     $where = '';
     $str_inner = '';
 
-    // find tables to join
+    // ATTACH TABLES
+
+    // Values can contain name of the table
+    // if table name is different from set table
+    // we sotore name to array for later manipulation
+
     $join_table = [];
-    if(isset($data['where'])){
-      foreach ($data['where'][0] as $key => $value) {
-        $x = explode(".", $value);
-        if(count($x) > 1){
-          $x_table = $x[0];
-          if($x_table != $data['table']){
-            if(count($join_table) == 0){
-              array_push($join_table, $x_table);
-            }
-          }
-        }
-      }
+
+    if(isset($data['where']))
+    {
+      function joinTable($str, $arr){ if($str){ if(!in_array($str, $arr)){ array_push($arr, $str); } } }
+      foreach ($data['where'][0] as $key => $value){ joinTable( bqConnectTable($value), $join_table ); }
+      foreach ($data['where'][2] as $key => $value){ joinTable( bqConnectTable($value), $join_table ); }
+      $where .= $this->bqStringWhere($data['where']);
     }
+
+    // JOIN TABLE
+    // Limited to one table for now
 
     if($join_table){
       $join_table = $join_table[0];
       if($is_connect_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `tab` = '{$join_table}'")){
         $str_inner = "INNER JOIN {$join_table} ON {$table}.id = {$join_table}.{$table}ID";
       }
-      if($conn_table = $is_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `t2` = '{$join_table}'")[0]['tab']){
-        //$conn_table = $is_table[0]['tab'];
+      elseif($conn_table = $is_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `t2` = '{$join_table}'")[0]['tab']){
         $str_inner = "INNER JOIN {$conn_table} ON {$table}.id = {$conn_table}.{$table}ID
         INNER JOIN {$join_table} ON {$conn_table}.{$join_table}ID = {$join_table}.id";
       }
-    }
-
-    if(isset($data['where'])){
-      $where .= "WHERE ";
-      foreach ($data['where'][0] as $key => $property) {
-        $j = $key*2;
-        $equals = $data['where'][2][$key];
-        $esc_B = ""; if($equals[0] == '_'){ $esc_B = "'";  $equals = substr($equals, 1); }
-        $esc_A = ""; if($property == '_'){ $esc_A = "'";  $property = substr($property, 1); }
-        $where .= "{$esc_A}{$property}{$esc_A} {$data['where'][1][$j]} {$esc_B}{$equals}{$esc_B}";
-        if(isset($data['where'][1][$j+1])){ $where .= " ".$data['where'][1][$j+1]." "; }
+      else{
+        $this->err("Table named {$join_table} is not connected to {$table} table");
       }
     }
+    // SELECT IF NO ERROR
 
     $sql = "SELECT {$table}.* FROM {$table} {$str_inner} {$where}";
     if($result = $this->db->query($sql)){
@@ -155,7 +194,9 @@ class bruteSQL
       $this->err("ERROR: SQL QUERY {$sql} FAILED");
     }
   }
-
+  // - - - - - - - - - - - - - - - - - - -
+  // INSERT
+  // - - - - - - - - - - - - - - - - - - -
 
   private function sqlInsert($data)
   {
