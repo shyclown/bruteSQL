@@ -156,46 +156,6 @@ class bruteSQL
     }
   }
 
-  public function sqlSelect($data){
-    $return = [];
-    $errors = [];
-    $table = $data['table'];
-    $what = [];
-    if($this->sqlTableExist($table)){
-      if(isset($data['select'])){ $innerJoinSelect = $this->checkTablesProperty($table, $data['select']); }
-      if(isset($data['where'])){ $innerJoinWhere = $this->checkTablesProperty($table, $data['where'][0]); }
-      $strSelect = "";
-      $innerJoin ="";
-      $where ="";
-      $limit = "";
-      $direction="";
-
-      if(isset($data['select'])){
-        foreach ($data['select'] as $key => $property) { if($key!=0){$strSelect .= ',';}; $strSelect .= $property; }
-      }else{
-        $strSelect .= '*';
-      }
-
-      //foreach ($innerJoinSelect as $key => $tablejoin) { $innerJoin .= "INNERJOIN {$tablename} ON {$tablejoin}ID = {$table}ID"; }
-      if(isset($data['where'])){
-        $where .= "WHERE ";
-        foreach ($data['where'][0] as $key => $property) {
-          $where .= "{$property} {$data['where'][1][$key]} '{$data['where'][2][$key]}'";
-          if(isset($data['where'][1][$key+1])){ $where .= $data['where'][1][$key+1]; }
-        }
-      }
-
-      $sql = "SELECT {$strSelect} FROM {$table} {$innerJoin} {$where} {$limit} {$direction}";
-      if($result = $this->db->query($sql)){
-        $this->log('SQL: SELECTED');
-        return $result;
-      }
-      else{
-        $this->err("ERROR: SQL QUERY {$sql} FAILED");
-      }
-    }
-  }
-
 
   private function sqlInsert($data)
   {
