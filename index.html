@@ -63,7 +63,7 @@
 
     <ul class="list-group">
       <li class="list-group-item" ng-repeat="item in customerOrders track by $index" >
-        {{item.name}} {{item.todo}}
+        {{item.name}} {{item.todo}} <button ng-click="deleteTask(item)">remove</button>
       </li>
     </ul>
 

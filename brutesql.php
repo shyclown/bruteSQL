@@ -11,14 +11,15 @@ if($data){
   $bq = new bruteSQL;
 
   // SELECT & INSERT & UPDATE & DELETE
-  if($data['select']){ $bq->table = $data['select']; $bq->select($data); }
-  if($data['insert']){ $bq->table = $data['insert']; $bq->insert($data); }
-  if($data['update']){ $bq->table = $data['update']; $bq->update($data); }
-  if($data['delete']){ $bq->table = $data['delete']; $bq->delete($data); }
-
+  if(isset($data['select'])){ $bq->table = $data['select']; echo json_encode($bq->select($data)); }
+  if(isset($data['insert'])){ $bq->table = $data['insert']; echo json_encode($bq->insert($data)); }
+  if(isset($data['update'])){ $bq->table = $data['update']; echo json_encode($bq->update($data)); }
+  if(isset($data['delete'])){ $bq->table = $data['delete']; echo json_encode($bq->delete($data)); }
+  // DISCONNECT
+  if(isset($data['disconnect'])){ $bq->table = $data['disconnect']; echo json_encode($bq->disconnect($data)); }
   // DROP & TRUNCATE
-  if($data['drop']){ $this->drop($data['drop']); }
-  if($data['truncate']){ $this->truncate($data['truncate']); }
+  if(isset($data['drop'])){ $this->drop($data['drop']); }
+  if(isset($data['truncate'])){ $this->truncate($data['truncate']); }
 
   // BQ Override
   if(isset($data['action'])){
@@ -38,7 +39,7 @@ if($data){
 class bruteSQL
 {
   private $db;
-  
+
   public $table = false;
   public $wall;
   public $errors;
@@ -51,6 +52,9 @@ class bruteSQL
   // WHERE DATA
   private $where_params = [];
   private $where_string = '';
+  // INNERJOIN
+  private $inner_tables = [];
+  private $inner_string = '';
 
   // - - - - - - - - - - - - - - - - - - -
   // PUBLIC
@@ -67,11 +71,15 @@ class bruteSQL
   public function select($data){ return $this->bqSelect($data); }
   public function update($data){ return $this->bqUpdate($data); }
   public function delete($data){ return $this->bqDelete($data); }
+  // DISCONNECT
+  public function disconnect($data){ return $this->bqDisconnect($data); }
   // DROP & TRUNCATE
   public function drop($table){ return $this->sqlDrop($table); }
   public function truncate($table){ return $this->sqlTruncate($table); }
   // LOG
-  public function connect($data){ return $this->sqlConnectRowsByID($data['data'][0],$data['data'][1],$data['data'][2],$data['data'][3]); }
+  public function connect($data){
+    return $this->sqlConnectRowsByID($data['data'][0],$data['data'][1],$data['data'][2],$data['data'][3]);
+  }
   public function alltables(){ return $this->sqlAllTables(); }
   public function log_read($limit){}
   public function log_drop(){}
@@ -95,54 +103,31 @@ class bruteSQL
   // SELECT
   // - - - - - - - - - - - - - - - - - - -
 
-  public function bqSelect($data)
+  private function bqSelect($data)
   {
-    $str_inner = '';
-    // WHERE
     if(isset($data['where'])){ $this->bqStringWhere($data['where']); }
-    // INTERJOIN
-    if($this->connected_tables){
-      $str_inner = $this->bqStringInnerJoin($this->table, $this->connected_tables[0]);
-    }
-    // LIMIT
-    // ORDERBY
-    $sql = "SELECT {$this->table}.* FROM {$this->table} {$str_inner} {$this->where_string}";
-    if($result = $this->db->query($sql,$this->where_params)){
-      $this->log('SQL: SELECTED');
-      return $result;
-    }
-    else{
-      $this->err("ERROR: {$sql} ");
-    }
+    if($this->connected_tables){ $this->bqStringInnerJoin($this->table, $this->connected_tables[0]); }
+
+    $sql = "SELECT {$this->table}.* FROM {$this->table} {$this->inner_string} {$this->where_string}";
+    if($result = $this->db->query($sql,$this->where_params)){ $this->log('SQL: SELECTED'); return $result; }
+    else{ $this->err("ERROR: {$sql} "); }
   }
 
   // - - - - - - - - - - - - - - - - - - -
   // UPDATE
   // - - - - - - - - - - - - - - - - - - -
 
-  public function bqUpdate($data)
+  private function bqUpdate($data)
   {
     if($this->sqlTableExist($this->table))
     {
-      // SET
       if(isset($data['set'])){ $this->bqStringSet($data['set']); }
-      // WHERE
       if(isset($data['where'])){ $this->bqStringWhere($data['where']); }
-      // INNERJOIN
-      if($this->connected_tables){
-        $str_inner = $this->bqStringInnerJoin($this->table, $this->connected_tables[0]);
-      }
+      if($this->connected_tables){ $this->bqStringInnerJoin($this->table, $this->connected_tables[0]); }
 
-      $sql = "UPDATE {$this->table} SET {$set} {$where}"; $this->log($sql); // debug
-      if($result = $this->db->query($sql, $params)){
-        $this->log('SQL: UPDATED');
-        foreach ($params as $k => $value) { $this->log("PARAMETER {$k}: {$value}"); }
-        return $result;
-      }
-      else{
-        $this->err("ERROR: {$sql}");
-        foreach ($params as $k => $value) { $this->err("PARAMETER {$k}: {$value}"); }
-      }
+      $sql = "UPDATE {$this->table} SET {$set} {$this->inner_string} {$where}";
+      if($result = $this->db->query($sql, $params)){ $this->log('SQL: UPDATED'); return $result; }
+      else{  $this->err("ERROR: {$sql}"); }
     }
   }
 
@@ -152,9 +137,7 @@ class bruteSQL
 
   private function bqInsert($data)
   {
-    if( !$this->sqlTableExist($this->table) ){
-      $this->sqlCreateTable($this->table);
-    }
+    if( !$this->sqlTableExist($this->table) ){ $this->sqlCreateTable($this->table); }
     if(isset($data['values'])){
       $properties = '';
       $values = '';
@@ -174,35 +157,78 @@ class bruteSQL
       }
       // INSERT
       $sql = "INSERT INTO {$this->table} ({$properties}) VALUES ({$values})";
-      if($result = $this->db->query($sql,$params,'get_id')){
-        $this->log('SQL: INSERTED');
-        return $result;
-      }
-      else{
-        $this->err("ERROR: {$sql}");
-      }
+      if($result = $this->db->query($sql,$params,'get_id')){ $this->log('SQL: INSERTED'); return $result; }
+      else{ $this->err("ERROR: {$sql}"); }
     }
+  }
+
+  // - - - - - - - - - - - - - - - - - - -
+  // DELETE
+  // - - - - - - - - - - - - - - - - - - -
+
+  private function bqDelete($data)
+  {
+    if(isset($data['where'])){ $this->bqStringWhere($data['where']); }
+    if($this->connected_tables){ $str_inner = $this->bqStringInnerJoin($this->table, $this->connected_tables[0]); }
+
+    $sql = "DELETE {$this->table} FROM {$this->table} {$this->inner_string} {$this->where_string}";
+    if($result = $this->db->query($sql,$this->where_params)){ $this->log('SQL: DELETED'); return $result; }
+    else{ $this->err("ERROR: {$sql} "); }
+  }
+
+  // - - - - - - - - - - - - - - - - - - -
+  // DISCONNECT
+  // - - - - - - - - - - - - - - - - - - -
+
+  private function bqDisconnect($data)
+  {
+    if(isset($data['where'])){ $this->bqStringWhere($data['where']); }
+    if($this->connected_tables){
+      $str_inner = $this->bqStringInnerJoin($this->table, $this->connected_tables[0], true);
+      $conn_table = $this->inner_tables[0];
+      $sql = "DELETE {$conn_table} FROM {$conn_table} {$this->inner_string} {$this->where_string}";
+      if($result = $this->db->query($sql,$this->where_params)){
+        $this->log('SQL: DELETE CONNECTION'); return $result;
+      }
+      else{ $this->err("ERROR: {$sql} "); }
+    }
+    else{ $this->err("ERROR: THERE IS NO TABLE CONNECTION");}
+
   }
 
   // - - - - - - - - - - - - - - - - - - -
   // FUNCTION
   // - - - - - - - - - - - - - - - - - - -
 
+  // CREATE CONNECT LEFT
+
   // STRING INNER JOIN
-  private function bqStringInnerJoin($table, $join_table)
+  private function bqStringInnerJoin($table, $join_table, $disconnect = false)
   {
-    $str_inner = '';
-    if($is_connect_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `tab` = '{$join_table}'")){
-      $str_inner = "INNER JOIN {$join_table} ON {$table}.id = {$join_table}.{$table}ID";
-    }
-    elseif($conn_table = $is_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `t2` = '{$join_table}'")[0]['tab']){
-      $str_inner = "INNER JOIN {$conn_table} ON {$table}.id = {$conn_table}.{$table}ID
-      INNER JOIN {$join_table} ON {$conn_table}.{$join_table}ID = {$join_table}.id";
+    if($disconnect){
+      if($conn_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `t2` = '{$join_table}'")[0]['tab']){
+        $this->inner_string = "INNER JOIN {$table} ON {$table}.id = {$conn_table}.{$table}ID
+        INNER JOIN {$join_table} ON {$conn_table}.{$join_table}ID = {$join_table}.id";
+        array_push($this->inner_tables, $conn_table);
+      }
+      else{
+        $this->err("Table named {$join_table} is not connected to {$table} table");
+      }
     }
     else{
-      $this->err("Table named {$join_table} is not connected to {$table} table");
+      if($conn_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `tab` = '{$join_table}'")){
+        $this->inner_string = "INNER JOIN {$join_table} ON {$table}.id = {$join_table}.{$table}ID";
+        array_push($this->inner_tables, $conn_table);
+      }
+      elseif($conn_table = $this->db->query("SELECT tab FROM bq_connections WHERE `t1` = '{$table}' AND `t2` = '{$join_table}'")[0]['tab']){
+        $this->inner_string = "INNER JOIN {$conn_table} ON {$table}.id = {$conn_table}.{$table}ID
+        INNER JOIN {$join_table} ON {$conn_table}.{$join_table}ID = {$join_table}.id";
+        array_push($this->inner_tables, $conn_table);
+      }
+      else{
+        $this->err("Table named {$join_table} is not connected to {$table} table");
+      }
     }
-    return $str_inner;
   }
 
   // STRING SET
@@ -235,7 +261,10 @@ class bruteSQL
       if($this->errors){ continue; }
       else{
         $this->where_string .= $this->bqVal($property).' '.$where[1][$j].' '.$this->bqVal($where[2][$key]);
-        if(isset($op[$j+1])){ $this->where_string  .= " {$op[$j+1]} "; }
+        if(isset($where[1][$j+1])){
+          $operator = $where[1][$j+1];
+          $this->where_string  .= " {$operator} ";
+        }
       }
     }
   }
@@ -246,7 +275,8 @@ class bruteSQL
       if($value[0]=='.'){ $value = substr($value, 1); }
       return $value;
     }else{
-      $this->where_params[0] = $this->param_type($value);
+      if(isset($this->where_params[0])){ $this->where_params[0] .= $this->param_type($value); }
+      else{ array_push($this->where_params, $this->param_type($value)); }
       array_push($this->where_params, $value);
       return '?';
     }
@@ -330,9 +360,10 @@ class bruteSQL
   // CONNECT ROWS BY ID
   private function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
     $this->sqlConnectTables($tableOne, $tableTwo);
-    $table = $tableOne.'_'.$tableTwo;
-    if(!$this->sqlTableExist($table)){ $table = $tableTwo.'_'.$tableOne; }
-    $this->sqlInsert(json_decode('{"table":"'.$table.'","values":{"'.$tableOne.'ID":"'.$tableOneID.'","'.$tableTwo.'ID":"'.$tableTwoID.'"}}', true));
+    $this->table = $tableOne.'_'.$tableTwo;
+    if(!$this->sqlTableExist($this->table)){ $this->table = $tableTwo.'_'.$tableOne; }
+    $json_string = '{"insert":"'.$this->table.'","values":{"'.$tableOne.'ID":"'.$tableOneID.'","'.$tableTwo.'ID":"'.$tableTwoID.'"}}';
+    $this->bqInsert(json_decode( $json_string, true ));
   }
 
   // CONNECT TABLES
@@ -348,13 +379,14 @@ class bruteSQL
     && !$this->sqlTableExist($t1)
     && !$this->sqlTableExist($t2)
     ){
-
       $table = $tableOne.'_'.$tableTwo;
-
       $this->sqlCreateTable($table);
-      $this->sqlInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'","tab":"'.$table.'"}}', true));
-      $this->sqlInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'","tab":"'.$table.'"}}', true));
-    };
+      $this->bqInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'","tab":"'.$table.'"}}', true));
+      $this->bqInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'","tab":"'.$table.'"}}', true));
+    }
+    else{
+      $this->log('connect table already exist');
+    }
     return false;
   }
 
@@ -446,6 +478,7 @@ class bruteSQL
   {
     // creates column in table for property if it doesn't exist
     // type is set to type of inserted value
+
     $columns = $this->sqlTableColumns($table);
     $value_length = strlen((string) $value);
     $value_type = $this->valueType($value);
