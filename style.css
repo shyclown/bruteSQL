@@ -1,6 +1,28 @@
-h2{
+html, body{
   font-family: 'Roboto', sans-serif;
   font-weight: 300;
+  font-size: 16px;
+}
+
+h1, h2, h3, h4, h5{
+  font-family: 'Roboto', sans-serif;
+  font-weight: 100;
+}
+label{
+  font-weight: 500;
+}
+.list-group-item{
+  cursor: pointer;
+}
+.list-group-item.selected:hover{
+  background-color: #0275d8;
+}
+.list-group-item:hover{
+  background-color: #EEE;
+}
+.selected{
+  background-color: #0275d8;
+  color: #FFF;
 }
 table {
   font-family: 'Roboto', sans-serif;
