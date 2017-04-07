@@ -21,7 +21,7 @@ app.controller('main', function($scope, $http, Ajax){
       let i = 0;
       let len = tables.length;
       tables.forEach(function(table){
-        Ajax.call({action:'select', table:table }, function(res){
+        Ajax.call({ select: table }, function(res){
           data[table] = res.data;
           if(i == len-1){ $scope.allTables = data; }
           i++;
@@ -32,8 +32,7 @@ app.controller('main', function($scope, $http, Ajax){
 
   const loadTasks = function(){
     Ajax.call({
-      action:'select',
-      table:'orders',
+      select:'orders',
       where:[['customer.id'],['='],[$scope.currentCustomer.id]]
     }, function(res){
       $scope.customerOrders = res.data == 'null' ? {} : res.data;
@@ -42,15 +41,14 @@ app.controller('main', function($scope, $http, Ajax){
 
   const loadCustomers = function(){
     Ajax.call({
-      action:'select',
-      table:'customer'
+      select: 'customer'
     }, function(res){
       $scope.customers = res.data; console.log(res);
     });
   }
 
   $scope.insertCustomer = function(customer){
-    Ajax.call({action:'insert', table:'customer', values: customer}, function(res){
+    Ajax.call({ insert:'customer', values: customer}, function(res){
       loadCustomers();
     });
   }
@@ -58,13 +56,13 @@ app.controller('main', function($scope, $http, Ajax){
     $scope.currentCustomer = customer; loadTasks();
   }
   $scope.orderByCustomer = function(orders){
-    Ajax.call({action:'insert', table:'orders', values: orders}, function(response){
+    Ajax.call({ insert: 'orders', values: orders}, function(response){
       Ajax.call({action:'connect', data:['customer','orders', $scope.currentCustomer.id, response.data]},function(res){
         loadTasks();
       });
     })
   }
   $scope.dropTable = function(table){
-    Ajax.call({action:'drop_table' ,table:table},function(res){ loadTables(); });
+    Ajax.call({ drop: table },function(res){ loadTables(); });
   }
 });

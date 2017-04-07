@@ -9,13 +9,26 @@ else{
 }
 if($data){
   $bq = new bruteSQL;
-  /* actions */
+
+  // SELECT & INSERT & UPDATE & DELETE
+  if($data['select']){ $bq->table = $data['select']; $bq->select($data); }
+  if($data['insert']){ $bq->table = $data['insert']; $bq->insert($data); }
+  if($data['update']){ $bq->table = $data['update']; $bq->update($data); }
+  if($data['delete']){ $bq->table = $data['delete']; $bq->delete($data); }
+
+  // DROP & TRUNCATE
+  if($data['drop']){ $this->drop($data['drop']); }
+  if($data['truncate']){ $this->truncate($data['truncate']); }
+
+  // BQ Override
   if(isset($data['action'])){
-  if ( method_exists($bq, $data['action']) ){
-    echo json_encode($bq->{$data['action']}($data));
+    if(isset($data['table'])){
+      $bq->table = $data['table'];
+    }
+    if(method_exists($bq, $data['action'])){
+      echo json_encode($bq->{$data['action']}($data));
     }
   }
-
 }
 
 // - - - - - - - - - - - - - - - - - - -
@@ -25,11 +38,12 @@ if($data){
 class bruteSQL
 {
   private $db;
+  
+  public $table = false;
   public $wall;
   public $errors;
 
-  // Temp
-  private $table = false;
+  // CONNECTED TABLES
   private $connected_tables = [];
   // SET DATA
   private $set_params = [];
@@ -38,30 +52,42 @@ class bruteSQL
   private $where_params = [];
   private $where_string = '';
 
+  // - - - - - - - - - - - - - - - - - - -
+  // PUBLIC
+  // - - - - - - - - - - - - - - - - - - -
+
+  // CONSTRUCTOR
   function __construct(){
     $this->db = new Database;
     $this->errors = [];
     $this->debug = [];
   }
-  /* Public functions */
-  public function insert($data){ return $this->sqlInsert($data);}
-  public function select($data){ return $this->bqSelect($data);}
-  public function update($data){ }
-  public function delete($data){ }
+  // SELECT & INSERT & UPDATE & DELETE
+  public function insert($data){ return $this->bqInsert($data); }
+  public function select($data){ return $this->bqSelect($data); }
+  public function update($data){ return $this->bqUpdate($data); }
+  public function delete($data){ return $this->bqDelete($data); }
+  // DROP & TRUNCATE
+  public function drop($table){ return $this->sqlDrop($table); }
+  public function truncate($table){ return $this->sqlTruncate($table); }
+  // LOG
   public function connect($data){ return $this->sqlConnectRowsByID($data['data'][0],$data['data'][1],$data['data'][2],$data['data'][3]); }
   public function alltables(){ return $this->sqlAllTables(); }
-
-  // LOG
   public function log_read($limit){}
   public function log_drop(){}
-  // DUMP TABLES
-  public function dump_tables(){ }
-  public function drop_table($data){ return $this->sqlDropTable($data); }
 
-  /* Private functions */
-  private function sqlDropTable($data){
-    if($this->sqlTableExist($data['table'])){
-      return $this->db->query("DROP TABLE {$data['table']}");
+  // - - - - - - - - - - - - - - - - - - -
+  // DROP TABLE
+  // - - - - - - - - - - - - - - - - - - -
+
+  private function sqlDrop($table){
+    if($this->sqlTableExist($table)){
+      return $this->db->query("DROP TABLE {$table}");
+    }
+  }
+  private function sqlTruncate($table){
+    if($this->sqlTableExist($table)){
+      return $this->db->query("TRUNCATE TABLE {$table}");
     }
   }
 
@@ -71,10 +97,7 @@ class bruteSQL
 
   public function bqSelect($data)
   {
-    $this->table = $data['table'];
-
     $str_inner = '';
-
     // WHERE
     if(isset($data['where'])){ $this->bqStringWhere($data['where']); }
     // INTERJOIN
@@ -97,9 +120,8 @@ class bruteSQL
   // UPDATE
   // - - - - - - - - - - - - - - - - - - -
 
-  public function sqlUpdate($data)
+  public function bqUpdate($data)
   {
-    $table = $data['table'];
     if($this->sqlTableExist($this->table))
     {
       // SET
@@ -111,7 +133,7 @@ class bruteSQL
         $str_inner = $this->bqStringInnerJoin($this->table, $this->connected_tables[0]);
       }
 
-      $sql = "UPDATE {$table} SET {$set} {$where}"; $this->log($sql); // debug
+      $sql = "UPDATE {$this->table} SET {$set} {$where}"; $this->log($sql); // debug
       if($result = $this->db->query($sql, $params)){
         $this->log('SQL: UPDATED');
         foreach ($params as $k => $value) { $this->log("PARAMETER {$k}: {$value}"); }
@@ -128,10 +150,11 @@ class bruteSQL
   // INSERT
   // - - - - - - - - - - - - - - - - - - -
 
-  private function sqlInsert($data)
+  private function bqInsert($data)
   {
-    $table = $data['table'];
-    if( !$this->sqlTableExist($table) ){ $this->sqlCreateTable($table); }
+    if( !$this->sqlTableExist($this->table) ){
+      $this->sqlCreateTable($this->table);
+    }
     if(isset($data['values'])){
       $properties = '';
       $values = '';
@@ -140,7 +163,7 @@ class bruteSQL
       $i = 0;
       // CHECK AND CREATE COLUMNS
       foreach ($data['values'] as $property => $value){
-        $this->bqPrepareColumn($table, $property, $value);
+        $this->bqPrepareColumn($this->table, $property, $value);
         $properties .= $property;
         $values .= '?';
         if($i == 0){ array_push($params,$this->param_type($value)); }
@@ -150,7 +173,7 @@ class bruteSQL
         $i++;
       }
       // INSERT
-      $sql = "INSERT INTO {$table} ({$properties}) VALUES ({$values})";
+      $sql = "INSERT INTO {$this->table} ({$properties}) VALUES ({$values})";
       if($result = $this->db->query($sql,$params,'get_id')){
         $this->log('SQL: INSERTED');
         return $result;
@@ -292,7 +315,6 @@ class bruteSQL
 
   // ERR
   private function err($str){ array_push($this->errors, $str); }
-
   // LOG
   private function log($str){ array_push($this->debug, $str); }
 
