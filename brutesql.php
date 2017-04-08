@@ -55,6 +55,11 @@ class bruteSQL
   // INNERJOIN
   private $inner_tables = [];
   private $inner_string = '';
+  // VALUES
+  private $values_params = [];
+  private $values_string = '';
+  private $properties_string = '';
+
 
   // - - - - - - - - - - - - - - - - - - -
   // PUBLIC
@@ -109,7 +114,7 @@ class bruteSQL
     if($this->connected_tables){ $this->bqStringInnerJoin($this->table, $this->connected_tables[0]); }
 
     $sql = "SELECT {$this->table}.* FROM {$this->table} {$this->inner_string} {$this->where_string}";
-    if($result = $this->db->query($sql,$this->where_params)){ $this->log('SQL: SELECTED'); return $result; }
+    if($result = $this->db->query($sql, $this->where_params)){ $this->log('SQL: SELECTED'); return $result; }
     else{ $this->err("ERROR: {$sql} "); }
   }
 
@@ -138,26 +143,10 @@ class bruteSQL
   private function bqInsert($data)
   {
     if( !$this->sqlTableExist($this->table) ){ $this->sqlCreateTable($this->table); }
-    if(isset($data['values'])){
-      $properties = '';
-      $values = '';
-      $params = [];
-      $nr = count($data['values']);
-      $i = 0;
-      // CHECK AND CREATE COLUMNS
-      foreach ($data['values'] as $property => $value){
-        $this->bqPrepareColumn($this->table, $property, $value);
-        $properties .= $property;
-        $values .= '?';
-        if($i == 0){ array_push($params,$this->param_type($value)); }
-        else{ $params[0] .= $this->param_type($value); }
-        array_push($params, $value);
-        if($i != $nr - 1){ $properties .= ', '; $values .= ', ';}
-        $i++;
-      }
-      // INSERT
-      $sql = "INSERT INTO {$this->table} ({$properties}) VALUES ({$values})";
-      if($result = $this->db->query($sql,$params,'get_id')){ $this->log('SQL: INSERTED'); return $result; }
+    if(isset($data['values'])){ $this->bqStringInsertValues($data['values']);
+
+      $sql = "INSERT INTO {$this->table} ({$this->properties_string}) VALUES ({$this->values_string})";
+      if($result = $this->db->query($sql, $this->values_params, 'get_id')){ $this->log('SQL: INSERTED'); return $result; }
       else{ $this->err("ERROR: {$sql}"); }
     }
   }
@@ -201,6 +190,12 @@ class bruteSQL
   // - - - - - - - - - - - - - - - - - - -
 
   // CREATE CONNECT LEFT
+  private function bqStringLeftJoin($table, $table_join, $join_table, $join_on)
+  {
+    /*
+    $left = "LEFT JOIN {$table_join} ON {$table_join}.{$property} = {$table}.{$property}";
+    */
+  }
 
   // STRING INNER JOIN
   private function bqStringInnerJoin($table, $join_table, $disconnect = false)
@@ -230,6 +225,30 @@ class bruteSQL
       }
     }
   }
+
+  // STRING INSERT VALUES
+  private function bqStringInsertValues($values)
+  {
+    $nr = count($values);
+    $i = 0;
+    foreach ($values as $property => $value)
+    {
+      $this->bqPrepareColumn($this->table, $property, $value);
+      $this->properties_string .= $property;
+      $this->values_string .= '?';
+
+      if($i == 0){ array_push($this->values_params,$this->param_type($value)); }
+      else{ $this->values_params[0] .= $this->param_type($value); }
+      array_push($this->values_params, $value);
+
+      if($i != $nr - 1){
+        $this->properties_string .= ', ';
+        $this->values_string .= ', ';
+      }
+      $i++;
+    }
+  }
+
 
   // STRING SET
   private function bqStringSet($set)
