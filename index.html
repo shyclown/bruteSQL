@@ -61,21 +61,9 @@
                 <p class="m-0 p"><strong>{{item.name}}</strong></br>
                 {{item.todo}}</p>
               </div>
-              <div class="col p-0 text-right"><button ng-click="deleteTask(item)">remove</button></div>
+              <div class="col p-0 text-right"><button ng-click="editTask(item)">edit</button></div>
             </li>
           </ul>
-          <!-- Rows of Tables -->
-          <div ng-repeat="(name,rows) in allTables track by $index">
-            <h2>{{name}}</h2><button ng-click="dropTable(name)">Drop</button>
-            <table>
-              <tr><th ng-repeat="(key,val) in rows[0]">{{key}}</th></tr>
-              <tr ng-repeat="value in rows track by $index" ng-click="changeCustomer(value)">
-                <td ng-repeat="val in value">
-                  {{val}}
-                </td>
-              </tr>
-            </table>
-          </div>
         </div>
       </div><!-- row -->
     </div><!-- container -->

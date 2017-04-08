@@ -10,25 +10,21 @@ app.service('Ajax',function($http){
 app.controller('main', function($scope, $http, Ajax){
 
   $scope.customers = {};
-  $scope.allTables = {};
   $scope.currentCustomer = false;
   $scope.order = {}
 
-  const loadTables = function(){
-    Ajax.call({action:'alltables'},function(res){
-      let tables = res.data;
-      let data = {};
-      let i = 0;
-      let len = tables.length;
-      tables.forEach(function(table){
-        Ajax.call({ select: table }, function(res){
-          data[table] = res.data;
-          if(i == len-1){ $scope.allTables = data; }
-          i++;
-        });
-      });
-    });
+  // edit task
+  $scope.editOrder = function(item){
+    // if item is set we are editin item
+    oItem = {}
+    if(!item){
+      // new item
+    }
+    else{
+
+    }
   }
+
   $scope.deleteTask = function(order){
     Ajax.call({
       disconnect:'orders',
