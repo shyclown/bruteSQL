@@ -1,4 +1,5 @@
 <?php
+spl_autoload_register(function ($class_name) { require ($class_name . '.php'); });
 // Listen to post value
 if(isset($_POST)
 && isset($_POST['action'])
@@ -8,8 +9,14 @@ else{
   $data = json_decode($data, true); //array
 }
 
+$bq = new Brute($data);
+//======================================================================
+// bqData
+//======================================================================
 
-spl_autoload_register(function ($class_name) { require ($class_name . '.php'); });
+/*
+  Prepare data for manipulation.
+*/
 
 class bqData
 {
@@ -33,6 +40,10 @@ class bqData
   }
 }
 
+//======================================================================
+// Brute
+//======================================================================
+
 class Brute
 {
   private $action;
@@ -44,6 +55,7 @@ class Brute
     $this->strings = new Model\bruteString($this->bqData, $this->db);
 
     echo json_encode($this->action());
+    $this->db->destroy();
   }
 
   private function action(){
@@ -56,7 +68,7 @@ class Brute
     // DROP & TRUNCATE
     if(isset($this->bqData->data['drop'])){ return $this->strings->sqlDrop($this->bqData->data['table']); }
     if(isset($this->bqData->data['truncate'])){ return $this->strings->sqlTruncate($this->bqData->data['table']); }
-    // LOG
+    // CUSTOM
     if(isset($this->bqData->data['action'])){
       if(method_exists($this, $this->bqData->data['action'])){ return $this->{$this->bqData->data['action']}($this->bqData); }
     }
@@ -72,6 +84,3 @@ class Brute
     return $this->query(new Model\Insert($this->strings, $this->db));
   }
 }
-
-
-$q = new Brute($data);
