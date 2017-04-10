@@ -1,6 +1,6 @@
 <?php
 namespace Model;
-class Select implements Query
+class Disconnect implements Query
 {
   private $bqString;
   private $db;
@@ -12,13 +12,14 @@ class Select implements Query
   }
   public function execute()
   {
-    $sql = "SELECT {$this->bqString->table}.*
-            FROM {$this->bqString->table}
+
+    $sql = "DELETE {$this->bqString->inner_table}
+            FROM {$this->bqString->inner_table}
             {$this->bqString->inner_string}
             {$this->bqString->where_string}";
 
     if($result = $this->db->query($sql, $this->bqString->where_params)){
-      $this->bqString->log('SQL: SELECTED');
+      $this->bqString->log('SQL: DELETED');
       return $result;
     }
     else{

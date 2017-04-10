@@ -5,32 +5,27 @@ class Database
 {
   public $_mysqli;
   public $error;
-  public function __construct(){
-  mysqli_report(MYSQLI_REPORT_STRICT);
-  try {
-       // from define.php file
-       $this->_mysqli = new \mysqli('localhost', 'root', '', 'brutesql');
-       $this->_mysqli->set_charset('utf8');
-     }
-     catch(Exception $e){
-       echo "Service unavailable";
-       echo "message: " . $e->message;
-       $error = $e->message;
-       exit;
-     }
-   }
-   public function select($sql_string){
-     $result = $this->_mysqli->query($sql_string);
-     if($result){
-       $_array = array();
-       while($row = $result->fetch_array(MYSQLI_ASSOC))
-         { $_array[] = $row; }
-       return $_array;
-     }
-   }
-   public function query($sql_string = null, $values = null, $returning = 'array')
-   {
+
+  public function __construct()
+  {
+    mysqli_report(MYSQLI_REPORT_STRICT);
+    try {
+      // from define.php file
+      $this->_mysqli = new \mysqli('localhost', 'root', '', 'brutesql');
+      $this->_mysqli->set_charset('utf8');
+    }
+    catch(Exception $e){
+      echo "Service unavailable";
+      echo "message: " . $e->message;
+      $error = $e->message;
+      exit;
+    }
+  }
+
+  public function query($sql_string = null, $values = null, $returning = 'array')
+  {
      $return_value = false;
+
      if($stmt = $this->_mysqli->prepare($sql_string)){
 
        if($values){
@@ -69,6 +64,7 @@ class Database
      }
      return $return_value;
    } // end of query
+
    private function refValues($arr){
      if (strnatcmp(phpversion(),'5.3') >= 0) //Reference is required for PHP 5.3+
      {
@@ -79,6 +75,7 @@ class Database
      }
      return $arr;
    }
+
    public function destroy(){
      $thread_id = $this->_mysqli->thread_id;
      $this->_mysqli->kill($thread_id);

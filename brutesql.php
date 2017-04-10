@@ -52,7 +52,7 @@ class Brute
     if(isset($this->bqData->data['update'])){ return $this->query(new Model\Update($this->strings, $this->db)); }
     if(isset($this->bqData->data['delete'])){ return $this->query(new Model\Delete($this->strings, $this->db)); }
     // DISCONNECT
-    if(isset($this->bqData->data['disconnect'])){ return $this->strings->bqDisconnect($this->bqData->data); }
+    if(isset($this->bqData->data['disconnect'])){ return $this->query(new Model\Disconnect($this->strings, $this->db)); }
     // DROP & TRUNCATE
     if(isset($this->bqData->data['drop'])){ return $this->strings->sqlDrop($this->bqData->data['table']); }
     if(isset($this->bqData->data['truncate'])){ return $this->strings->sqlTruncate($this->bqData->data['table']); }

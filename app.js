@@ -6,6 +6,30 @@ app.service('Ajax',function($http){
     .then( function(res){ callback(res);}, function(res){} );
   }
 });
+app.service('Shared', function()
+{
+  const directiveOBJ = function(name, generatedOBJ, item, callback, scope)
+  {
+    this.html = '<'+name+' edit-obj="'+generatedOBJ+'"></'+name+'>';
+    this.el = $compile( this.html )( scope );
+    this.item = item;
+    this.callback = callback;
+    this.close = function(){ this.el.remove(); };
+  }
+  this.directiveElement = function( name, item, callback, scope )
+  {
+    callback = callback || function(){};
+    item = item || false;
+    const generatedID = 'item_'+windowID;
+    self.openElement[generatedID] = new directiveOBJ(name, generatedID, item, callback, scope);
+    angular.element($document).find('body').append(self.openElement[generatedID].el);
+    windowID++;
+    return self.openElement[generatedID];
+  }
+});
+app.controller('editOrder', function($scope, $http, Ajax){
+
+});
 // Main Controller
 app.controller('main', function($scope, $http, Ajax){
 
@@ -13,19 +37,16 @@ app.controller('main', function($scope, $http, Ajax){
   $scope.currentCustomer = false;
   $scope.order = {}
 
+  $scope.eOrder = {};
+
   // edit task
   $scope.editOrder = function(item){
-    // if item is set we are editin item
-    oItem = {}
-    if(!item){
-      // new item
-    }
-    else{
-
-    }
+    const el = $('#ordersModal').modal('show');
+    if(item){ $scope.edit_order = Object.assign({}, item); }
+    else{ $scope.edit_order = {}; }
+    console.log($scope.edit_order);
   }
-
-  $scope.deleteTask = function(order){
+  $scope.deleteOrder = function(order){
     Ajax.call({
       disconnect:'orders',
       where:[['customer.id', 'orders.id'],['=','AND','='],[$scope.currentCustomer.id, order.id]]
@@ -57,12 +78,22 @@ app.controller('main', function($scope, $http, Ajax){
   $scope.changeCustomer = function(customer){
     $scope.currentCustomer = customer; loadTasks();
   }
-  $scope.orderByCustomer = function(orders){
-    Ajax.call({ insert: 'orders', values: orders }, function(response){
+  $scope.saveOrder = function(order){
+    if(!order.id){
+    Ajax.call({ insert: 'orders', values: order }, function(response){
       Ajax.call({ action:'connect', data:['customer','orders', $scope.currentCustomer.id, response.data]},function(res){
         loadTasks();
       });
-    })
+    });
+    }
+    else{
+      Ajax.call({ update: 'orders',
+        set: { name: order.name, todo: order.todo },
+        where: [['orders.id'],['='],[order.id]]
+      }, function(response){
+        loadTasks();
+      });
+    }
   }
   $scope.dropTable = function(table){
     Ajax.call({ drop: table },function(res){ loadTables(); });

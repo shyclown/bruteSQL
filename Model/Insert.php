@@ -16,7 +16,8 @@ class Insert implements Query
         $this->bqString->sqlCreateTable($this->bqString->table);
       }
 
-      $sql = "INSERT INTO {$this->bqString->table} ({$this->bqString->value_properties})
+      $sql = "INSERT INTO {$this->bqString->table}
+              ({$this->bqString->value_properties})
               VALUES ({$this->bqString->value_values})";
 
       if($result = $this->db->query($sql, $this->bqString->value_params, 'get_id')){
