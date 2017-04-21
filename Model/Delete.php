@@ -14,16 +14,18 @@ class Delete implements Query
   {
     $sql = "DELETE {$this->bqString->table}
             FROM {$this->bqString->table}
-            {$this->bqString->innerjoin}
-            {$this->bqString->where}";
+            {$this->bqString->inner_string}
+            {$this->bqString->where_string}";
 
-    if($result = $this->db->query($sql,$this->$bqString->where_params))
+    if($result = $this->db->query($sql,$this->bqString->where_params))
     {
-      $this->log('SQL: DELETED');
+      $this->bqString->log('SQL: DELETED');
       return $result;
     }
     else{
-      $this->err("ERROR: {$sql} ");
+      $this->bqString->err("ERROR: {$sql} ");
+      echo $sql;
+      var_dump($this->bqString->$error);
     }
   }
 }

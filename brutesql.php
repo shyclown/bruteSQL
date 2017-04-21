@@ -9,7 +9,11 @@ else{
   $data = json_decode($data, true); //array
 }
 
+
+
 $bq = new Brute($data);
+
+
 //======================================================================
 // bqData
 //======================================================================
@@ -31,6 +35,7 @@ class bqData
     // DISCONNECT
     if(isset($data['disconnect'])){ $this->data['table'] = $data['disconnect']; }
     // DROP & TRUNCATE
+    if(isset($data['create'])){ $this->data['create'] = $data['create']; }
     if(isset($data['drop'])){ $this->data['drop'] = $data['drop']; }
     if(isset($data['truncate'])){ $this->data['truncate'] = $data['truncate']; }
     // BQ Override
@@ -66,6 +71,7 @@ class Brute
     // DISCONNECT
     if(isset($this->bqData->data['disconnect'])){ return $this->query(new Model\Disconnect($this->strings, $this->db)); }
     // DROP & TRUNCATE
+    if(isset($this->bqData->data['create'])){ return $this->strings->sqlCreateTable($this->bqData->data['table']); }
     if(isset($this->bqData->data['drop'])){ return $this->strings->sqlDrop($this->bqData->data['table']); }
     if(isset($this->bqData->data['truncate'])){ return $this->strings->sqlTruncate($this->bqData->data['table']); }
     // CUSTOM

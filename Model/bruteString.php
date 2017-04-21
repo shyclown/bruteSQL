@@ -28,12 +28,13 @@ class bruteString
   {
     $this->db = $db;
     $this->data = $bqData->data;
+    $this->sysTables();
     $this->buildStrings();
   }
 
   //======================================================================
   // PUBLIC
-  //=====================================================================
+  //======================================================================
 
   /* Debug - Error */
   public function err($str){ $this->errors[] = $str; }
@@ -50,15 +51,22 @@ class bruteString
       "CREATE TABLE IF NOT EXISTS {$table} ( id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY )"
   );}
   /* Table - Connect Rows by ID */
-  public function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID){
+  public function sqlConnectRowsByID($tableOne, $tableTwo, $tableOneID, $tableTwoID)
+  {
     $this->sqlConnectTables($tableOne, $tableTwo);
     $this->table = $tableOne.'_'.$tableTwo;
     if(!$this->sqlTableExist($this->table)){ $this->table = $tableTwo.'_'.$tableOne; }
+    $sql_order = "SELECT MAX(`order`) FROM {$this->table} WHERE `{$tableOne}ID` = {$tableOneID}";
+    $order = $this->db->query( $sql_order )[0]['MAX(`order`)'];
+    if(!$order){ $order = 1; } else { $order++; }
+
     // prepare values for insertion
-    $this->value_params = ['ii', $tableOneID, $tableTwoID];
-    $this->value_properties = "{$tableOne}ID, {$tableTwo}ID";
-    $this->value_values = "? , ?";
+    $str_json = '{"insert":"'.$this->table.'","values":{"'.$tableOne.'ID":'.$tableOneID.',"'.$tableTwo.'ID":'.$tableTwoID.', "order":'.$order.'}}';
+    $this->data = json_decode($str_json ,true );
+    $this->buildStrings();
+
   }
+
   /* retreive NAMES of all tables */
     private function sqlAllTables(){
       $tables = $this->db->query("SHOW TABLES");
@@ -71,13 +79,16 @@ class bruteString
 
   //======================================================================
   // PRIVATE
-  //=====================================================================
+  //======================================================================
 
   /* Build Strings */
 
   private function buildStrings()
   {
-    if(isset($this->data['table'])){ $this->table = $this->data['table']; }
+    if(isset($this->data['table'])){
+      $this->table = $this->data['table'];
+      $this->sqlCreateTable($this->table);
+    }
     if(isset($this->data['where'])){ $this->bqStringWhere($this->data['where']); }
     if(isset($this->data['values'])){ $this->bqStringValues($this->data['values']); }
     if(isset($this->data['set'])){ $this->bqStringSet($this->data['set']); }
@@ -93,28 +104,32 @@ class bruteString
 
   private function bqStringInnerJoin($tableA, $tableB, $disconnect)
   {
+    $this->sqlConnectTables($tableA, $tableB);
+
+
     if($this->isConnectionTable($tableA, $tableB)){
       $this->inner_string = innerJoinTwo($tableA, $tableB);
     }
     elseif($connect = $this->selectConnectionTable($tableA, $tableB)){
-      $this->inner_string = $this->innerJoinThree($tableA, $connect, $tableB, $disconnect);
-      $this->inner_table = $connect;
+      $this->inner_string = $this->innerJoinThree($tableA, $connect[0]['tab'], $tableB, $disconnect);
+      $this->inner_table = $connect[0]['tab'];
     }
     else{
-      $this->err("Table named {$join_table} is not connected to {$table} table");
+      $this->err("Table named {$tableA} is not connected to {$tableB} table");
     }
   }
   private function innerJoinTwo($tableA, $tableB){
     return "INNER JOIN {$tableB} ON {$tableB}.{$tableA}ID = {$tableA}.id";
   }
   private function innerJoinThree($tableA, $connect, $tableB, $disconnect){
+
     if($disconnect){ $joined = $tableA; } else { $joined = $connect; }
     return "INNER JOIN {$joined} ON {$connect}.{$tableA}ID = {$tableA}.id
             INNER JOIN {$tableB}  ON {$connect}.{$tableB}ID = {$tableB}.id";
   }
   private function selectConnectionTable($tableA, $tableB){
     $sql = "SELECT tab FROM bq_connections WHERE `t1` = ? AND `t2` = ?";
-    return $this->db->query($sql, array('ss', $tableA, $tableB))[0]['tab'];
+    return $this->db->query($sql, array('ss', $tableA, $tableB));
   }
   private function isConnectionTable($tableA, $tableB){
     $sql = "SELECT tab FROM bq_connections WHERE `t1` = ? AND `tab` = ?";
@@ -127,6 +142,7 @@ class bruteString
 
   private function bqStringWhere($where)
   {
+
     $this->where_string .= 'WHERE ';
     foreach ($where[0] as $key => $property){
       $j = $key*2;
@@ -150,11 +166,14 @@ class bruteString
   private function bqStringValues($values)
   {
     $i = 0;
+    // make sure table exists
+
+
     foreach ($values as $property => $value)
     {
       $this->bqPrepareColumn($this->table, $property, $value);
       if($i != 0){ $dash = ','; }else{ $dash = ''; }
-      $this->value_properties .= $dash.$property;
+      $this->value_properties .= $dash.'`'.$property.'`';
       $this->value_values .= $dash.'?';
       $type = $this->param_type($value);
 
@@ -178,6 +197,7 @@ class bruteString
       $this->bqPropertyExists($property);
       if($this->errors){ continue; }
       else{
+        $this->bqPrepareColumn($this->table, $property, $value);
         if($i != 0){ $this->set_string .= ', '; }
         $this->set_string .= $property.' = ?';
         $type = $this->param_type($value);
@@ -199,6 +219,9 @@ class bruteString
   {
     // creates column in table for property if it doesn't exist
     // type is set to type of inserted value
+
+    // table
+
 
     $columns = $this->sqlTableColumns($table);
     $value_length = strlen((string) $value);
@@ -226,6 +249,7 @@ class bruteString
     // CREATE NEW IF DOESNT EXIST
     if (!$column_exist) {
       $this->sqlAddColumn($table, $property, $new_type);
+      $this->log("Column Added: {$property}");
     }
   }
 
@@ -325,11 +349,19 @@ class bruteString
   // TODO: remove table note when deleted connection
   // for now it is not possible to delete connection
 
+  // brutesql tables
+  private function sysTables(){
+    $this->db->query("CREATE TABLE IF NOT EXISTS bq_connections
+      ( id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        t1 VARCHAR(16),
+        t2 VARCHAR(16),
+        tab VARCHAR(64)
+     )");
+  }
+
   private function sqlConnectTables($tableOne, $tableTwo){
 
-      if(!$this->sqlTableExist('bq_connections')){
-        $this->sqlCreateTable('bq_connections');
-      }
+
       $t1 = $tableOne.'_'.$tableTwo;
       $t2 = $tableTwo.'_'.$tableOne;
       if($this->sqlTableExist($tableOne)
@@ -339,8 +371,10 @@ class bruteString
       ){
         $table = $tableOne.'_'.$tableTwo;
         $this->sqlCreateTable($table);
-        $this->bqInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'","tab":"'.$table.'"}}', true));
-        $this->bqInsert(json_decode('{"table":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'","tab":"'.$table.'"}}', true));
+        $this->bqPrepareColumn($table, $tableOne.'ID', 111111);
+        $this->bqPrepareColumn($table, $tableTwo.'ID', 111111);
+        new \Brute(json_decode('{"insert":"bq_connections","values":{"t1":"'.$tableOne.'","t2":"'.$tableTwo.'","tab":"'.$table.'"}}', true));
+        new \Brute(json_decode('{"insert":"bq_connections","values":{"t1":"'.$tableTwo.'","t2":"'.$tableOne.'","tab":"'.$table.'"}}', true));
       }
       else{
         $this->log('connect table already exist');
@@ -379,7 +413,7 @@ class bruteString
 
   /* add column to table */
   private function sqlAddColumn($table, $column, $type){ return $this->db->query(
-    "ALTER TABLE {$table} ADD COLUMN {$column} {$type}"
+    "ALTER TABLE {$table} ADD COLUMN `{$column}` {$type}"
   );}
 
   /* update column in table */

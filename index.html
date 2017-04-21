@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <title>Test bruteSQL</title>
     <script src="/angular/angular.min.js"></script>
+    <script src="/angular/angular-sanitize.min.js"></script>
     <script src="app.js"></script>
-
+    <link rel="stylesheet" href="css/font-awesome.min.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
@@ -23,7 +24,7 @@
               <h1>Todo</h1>
             </div>
             <div class="col-6 bg-info text-white pt-2 text-right">
-              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal">
+              <button type="button" class="btn btn-primary" ng-click="editCustomer()">
                 Add Customer
               </button>
             </div>
@@ -32,6 +33,7 @@
           <ul class="list-group">
             <li class="list-group-item" ng-class="currentCustomer==customer?'selected':''" ng-repeat="customer in customers track by $index" ng-click="changeCustomer(customer)">
               {{customer.name}} {{customer.surname}}
+              <button ng-click="editCustomer(customer); $event.stopPropagation()"><i class="fa fa-cog"></i></button>
             </li>
           </ul>
         </div>
@@ -59,9 +61,9 @@
             <li class="list-group-item" ng-repeat="item in customerOrders track by $index" >
               <div class="col p-0">
                 <p class="m-0 p"><strong>{{item.name}}</strong></br>
-                {{item.todo}}</p>
+                <div ng-bind-html="item.todo">/div></p>
               </div>
-              <div class="col p-0 text-right"><button ng-click="editOrder(item)">edit</button></div>
+              <div class="col p-0 text-right"><button ng-click="editOrder(item)"><i class="fa fa-cog"></i></button></div>
             </li>
           </ul>
         </div>
@@ -82,7 +84,7 @@
               </div>
               <div class="form-group">
                 <lable>Todo</label>
-                  <input type="text" class="form-control" ng-model="edit_order.todo" placeholder="Order details">
+                  <div contenteditable=true class="form-control" ng-model="edit_order.todo" ng-bind-html="edit_order.todo"></div>
               </div>
             </div>
             <div class="modal-footer">
@@ -105,17 +107,17 @@
               <h2>Customer</h2>
               <div class="form-group">
                 <lable>Name</label>
-                <input id="customerName" type="text" class="form-control" ng-model="customer.name" placeholder="Customer Name">
+                <input id="customerName" type="text" class="form-control" ng-model="edit_customer.name" placeholder="Customer Name">
               </div>
               <div class="form-group">
                 <lable>Surname</label>
-                <input type="text" class="form-control" ng-model="customer.surname" placeholder="Customer Surname">
+                <input type="text" class="form-control" ng-model="edit_customer.surname" placeholder="Customer Surname">
               </div>
-              <button type="submit" class="btn btn-primary" ng-click="insertCustomer(customer)">ADD Customer</button>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-              <button type="button" class="btn btn-primary">Save changes</button>
+              <button ng-if="(edit_customer.id)" type="button" data-dismiss="modal" class="btn btn-warning" data-dismiss="modal" ng-click="deleteCustomer(edit_customer)">Delete</button>
+              <button type="button" class="btn btn-primary" data-dismiss="modal" ng-click="saveCustomer(edit_customer)">Save changes</button>
             </div>
           </form>
         </div>

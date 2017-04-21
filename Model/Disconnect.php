@@ -12,7 +12,6 @@ class Disconnect implements Query
   }
   public function execute()
   {
-
     $sql = "DELETE {$this->bqString->inner_table}
             FROM {$this->bqString->inner_table}
             {$this->bqString->inner_string}
